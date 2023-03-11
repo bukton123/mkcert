@@ -114,6 +114,7 @@ func main() {
 		organizationUnitFlag = flag.String("org-unit", "", "")
 		countryUnitFlag      = flag.String("country", "TH", "")
 		dnsFlag              = flag.String("dns", "", "")
+		dirFlag              = flag.String("dir", "", "")
 	)
 	flag.Usage = func() {
 		fmt.Fprint(flag.CommandLine.Output(), shortUsage)
@@ -164,7 +165,7 @@ func main() {
 		if *installFlag || *uninstallFlag {
 			log.Fatalln("ERROR: you can't set -[un]install and -CAROOT at the same time")
 		}
-		fmt.Println(getCAROOT())
+		fmt.Println(getCAROOT(*dirFlag))
 		return
 	}
 	if *installFlag && *uninstallFlag {
@@ -180,7 +181,7 @@ func main() {
 		installMode: *installFlag, uninstallMode: *uninstallFlag, csrPath: *csrFlag,
 		pkcs12: *pkcs12Flag, ecdsa: *ecdsaFlag, client: *clientFlag,
 		certFile: *certFileFlag, keyFile: *keyFileFlag, p12File: *p12FileFlag,
-	}).Run(strings.Split(*dnsFlag, ",")) // TODO: flag.Args()
+	}).Run(strings.Split(*dnsFlag, ","), *dirFlag) // TODO: flag.Args()
 }
 
 const rootName = "rootCA.pem"
@@ -202,9 +203,8 @@ type mkcert struct {
 	ignoreCheckFailure bool
 }
 
-func (m *mkcert) Run(args []string) {
-	fmt.Println(args)
-	m.CAROOT = getCAROOT()
+func (m *mkcert) Run(args []string, dir string) {
+	m.CAROOT = getCAROOT(dir)
 	if m.CAROOT == "" {
 		log.Fatalln("ERROR: failed to find the default CA location, set one as the CAROOT env var")
 	}
@@ -213,9 +213,10 @@ func (m *mkcert) Run(args []string) {
 
 	if m.installMode {
 		m.install()
-		if len(args) == 0 {
-			return
-		}
+		//if len(args) == 0 {
+		//	return
+		//}
+		return
 	} else if m.uninstallMode {
 		m.uninstall()
 		return
@@ -272,9 +273,13 @@ func (m *mkcert) Run(args []string) {
 	m.makeCert(args)
 }
 
-func getCAROOT() string {
+func getCAROOT(currentDir string) string {
 	if env := os.Getenv("CAROOT"); env != "" {
 		return env
+	}
+
+	if currentDir != "" {
+		return filepath.Join(currentDir, "mkcert")
 	}
 
 	var dir string
