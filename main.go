@@ -23,6 +23,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/net/idna"
 )
@@ -83,6 +84,10 @@ const advancedUsage = `Advanced options:
 // which is "(devel)" when building from within the module. See
 // golang.org/issue/29814 and golang.org/issue/29228.
 var Version string
+var expirationCert time.Time
+var organizationCert = "mk cert"
+var organizationUnitCert = ""
+var countryCert = "TH"
 
 func main() {
 	if len(os.Args) == 1 {
@@ -91,24 +96,53 @@ func main() {
 	}
 	log.SetFlags(0)
 	var (
-		installFlag   = flag.Bool("install", false, "")
-		uninstallFlag = flag.Bool("uninstall", false, "")
-		pkcs12Flag    = flag.Bool("pkcs12", false, "")
-		ecdsaFlag     = flag.Bool("ecdsa", false, "")
-		clientFlag    = flag.Bool("client", false, "")
-		helpFlag      = flag.Bool("help", false, "")
-		carootFlag    = flag.Bool("CAROOT", false, "")
-		csrFlag       = flag.String("csr", "", "")
-		certFileFlag  = flag.String("cert-file", "", "")
-		keyFileFlag   = flag.String("key-file", "", "")
-		p12FileFlag   = flag.String("p12-file", "", "")
-		versionFlag   = flag.Bool("version", false, "")
+		installFlag          = flag.Bool("install", false, "")
+		uninstallFlag        = flag.Bool("uninstall", false, "")
+		pkcs12Flag           = flag.Bool("pkcs12", false, "")
+		ecdsaFlag            = flag.Bool("ecdsa", false, "")
+		clientFlag           = flag.Bool("client", false, "")
+		helpFlag             = flag.Bool("help", false, "")
+		carootFlag           = flag.Bool("CAROOT", false, "")
+		csrFlag              = flag.String("csr", "", "")
+		certFileFlag         = flag.String("cert-file", "", "")
+		keyFileFlag          = flag.String("key-file", "", "")
+		p12FileFlag          = flag.String("p12-file", "", "")
+		versionFlag          = flag.Bool("version", false, "")
+		expirationFlag       = flag.Uint("expiration", 10, "")
+		nameFlag             = flag.String("cname", "", "")
+		organizationFlag     = flag.String("org", "", "")
+		organizationUnitFlag = flag.String("org-unit", "", "")
+		countryUnitFlag      = flag.String("country", "TH", "")
+		dnsFlag              = flag.String("dns", "", "")
 	)
 	flag.Usage = func() {
 		fmt.Fprint(flag.CommandLine.Output(), shortUsage)
 		fmt.Fprintln(flag.CommandLine.Output(), `For more options, run "mkcert -help".`)
 	}
 	flag.Parse()
+
+	if *expirationFlag > 0 {
+		expirationCert = time.Now().AddDate(int(*expirationFlag), 0, 0)
+	} else {
+		expirationCert = time.Now().AddDate(10, 0, 0)
+	}
+
+	if *nameFlag != "" {
+		userAndHostname = *nameFlag
+	}
+
+	if *organizationFlag != "" {
+		organizationCert = *organizationFlag
+	}
+
+	if *organizationUnitFlag != "" {
+		organizationUnitCert = *organizationUnitFlag
+	}
+
+	if *countryUnitFlag != "" {
+		countryCert = *countryUnitFlag
+	}
+
 	if *helpFlag {
 		fmt.Print(shortUsage)
 		fmt.Print(advancedUsage)
@@ -146,7 +180,7 @@ func main() {
 		installMode: *installFlag, uninstallMode: *uninstallFlag, csrPath: *csrFlag,
 		pkcs12: *pkcs12Flag, ecdsa: *ecdsaFlag, client: *clientFlag,
 		certFile: *certFileFlag, keyFile: *keyFileFlag, p12File: *p12FileFlag,
-	}).Run(flag.Args())
+	}).Run(strings.Split(*dnsFlag, ",")) // TODO: flag.Args()
 }
 
 const rootName = "rootCA.pem"
@@ -169,6 +203,7 @@ type mkcert struct {
 }
 
 func (m *mkcert) Run(args []string) {
+	fmt.Println(args)
 	m.CAROOT = getCAROOT()
 	if m.CAROOT == "" {
 		log.Fatalln("ERROR: failed to find the default CA location, set one as the CAROOT env var")

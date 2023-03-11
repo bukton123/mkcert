@@ -59,16 +59,17 @@ func (m *mkcert) makeCert(hosts []string) {
 	// Certificates last for 2 years and 3 months, which is always less than
 	// 825 days, the limit that macOS/iOS apply to all certificates,
 	// including custom roots. See https://support.apple.com/en-us/HT210176.
-	expiration := time.Now().AddDate(2, 3, 0)
+	//expiration := time.Now().AddDate(2, 3, 0)
 
 	tpl := &x509.Certificate{
 		SerialNumber: randomSerialNumber(),
 		Subject: pkix.Name{
-			Organization:       []string{"mkcert development certificate"},
-			OrganizationalUnit: []string{userAndHostname},
+			Country:            []string{countryCert},
+			Organization:       []string{organizationCert},
+			OrganizationalUnit: []string{organizationUnitCert},
 		},
 
-		NotBefore: time.Now(), NotAfter: expiration,
+		NotBefore: time.Now(), NotAfter: expirationCert,
 
 		KeyUsage: x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 	}
@@ -142,7 +143,7 @@ func (m *mkcert) makeCert(hosts []string) {
 		log.Printf("\nThe legacy PKCS#12 encryption password is the often hardcoded default \"changeit\" ℹ️\n\n")
 	}
 
-	log.Printf("It will expire on %s 🗓\n\n", expiration.Format("2 January 2006"))
+	log.Printf("It will expire on %s 🗓\n\n", expirationCert.Format("2 January 2006"))
 }
 
 func (m *mkcert) printHosts(hosts []string) {
@@ -225,13 +226,13 @@ func (m *mkcert) makeCertFromCSR() {
 	fatalIfErr(err, "failed to parse the CSR")
 	fatalIfErr(csr.CheckSignature(), "invalid CSR signature")
 
-	expiration := time.Now().AddDate(2, 3, 0)
+	//expiration := time.Now().AddDate(2, 3, 0)
 	tpl := &x509.Certificate{
 		SerialNumber:    randomSerialNumber(),
 		Subject:         csr.Subject,
 		ExtraExtensions: csr.Extensions, // includes requested SANs, KUs and EKUs
 
-		NotBefore: time.Now(), NotAfter: expiration,
+		NotBefore: time.Now(), NotAfter: expirationCert,
 
 		// If the CSR does not request a SAN extension, fix it up for them as
 		// the Common Name field does not work in modern browsers. Otherwise,
@@ -275,7 +276,7 @@ func (m *mkcert) makeCertFromCSR() {
 
 	log.Printf("\nThe certificate is at \"%s\" ✅\n\n", certFile)
 
-	log.Printf("It will expire on %s 🗓\n\n", expiration.Format("2 January 2006"))
+	log.Printf("It will expire on %s 🗓\n\n", expirationCert.Format("2 January 2006"))
 }
 
 // loadCA will load or create the CA at CAROOT.
@@ -327,17 +328,18 @@ func (m *mkcert) newCA() {
 	tpl := &x509.Certificate{
 		SerialNumber: randomSerialNumber(),
 		Subject: pkix.Name{
-			Organization:       []string{"mkcert development CA"},
-			OrganizationalUnit: []string{userAndHostname},
+			Country:            []string{countryCert},
+			Organization:       []string{organizationCert},
+			OrganizationalUnit: []string{organizationUnitCert},
 
 			// The CommonName is required by iOS to show the certificate in the
 			// "Certificate Trust Settings" menu.
 			// https://github.com/FiloSottile/mkcert/issues/47
-			CommonName: "mkcert " + userAndHostname,
+			CommonName: userAndHostname,
 		},
 		SubjectKeyId: skid[:],
 
-		NotAfter:  time.Now().AddDate(10, 0, 0),
+		NotAfter:  expirationCert,
 		NotBefore: time.Now(),
 
 		KeyUsage: x509.KeyUsageCertSign,
